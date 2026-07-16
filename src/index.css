@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #0A0E1A;
+    color: #fff;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: #0F1629; }
+  ::-webkit-scrollbar-thumb { background: #1E2A45; border-radius: 2px; }
+}
+
+@layer utilities {
+  .text-neon {
+    color: #00F5A0;
+    text-shadow: 0 0 12px rgba(0, 245, 160, 0.6);
+  }
+
+  .gold-text {
+    background: linear-gradient(90deg, #B8860B, #FFD700, #FFA500, #FFD700, #B8860B);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gold-shimmer 2s linear infinite;
+  }
+
+  .board-card {
+    background: #0F1629;
+    border: 1px solid #1E2A45;
+    border-radius: 12px;
+  }
+
+  .glow-border-green {
+    border-color: rgba(0, 245, 160, 0.5);
+    box-shadow: 0 0 16px rgba(0, 245, 160, 0.2), inset 0 0 16px rgba(0, 245, 160, 0.04);
+  }
+
+  .num-animate {
+    animation: count-up 0.4s ease-out forwards;
+  }
+}
+
+/* Ticker keyframe — defined here so it's always in the bundle.
+   Ticker.jsx references it via inline animation style (not an animate-* class),
+   so Tailwind JIT would strip it if it were only in tailwind.config.js. */
+@keyframes ticker {
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Confetti canvas always on top */
+#confetti-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
