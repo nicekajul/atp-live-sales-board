@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react'
 import Avatar   from './Avatar.jsx'
 import QuotaBar from './QuotaBar.jsx'
 import { TIER_COLORS } from '../constants/tiers.js'
@@ -26,12 +27,13 @@ function TierBadge({ tier }) {
 }
 
 // Visual podium order: index 0 = 2nd (left), 1 = 1st (centre), 2 = 3rd (right)
-// Matches AwardsTracker slot config exactly
+// Base sizes are designed for ~520px container height; scale factor shrinks them on smaller screens
 const SLOTS = [
-  { rank: 2, color: '#C0C0C0', glow: 'rgba(192,192,192,0.5)', platformH: 130, avatarSize: 96,  nameSize: 'text-3xl' },
-  { rank: 1, color: '#FFD700', glow: 'rgba(255,215,0,0.65)',  platformH: 160, avatarSize: 136, nameSize: 'text-5xl' },
-  { rank: 3, color: '#CD7F32', glow: 'rgba(205,127,50,0.45)', platformH: 90,  avatarSize: 82,  nameSize: 'text-2xl' },
+  { rank: 2, color: '#C0C0C0', glow: 'rgba(192,192,192,0.5)', platformH: 130, avatarSize: 96,  namePx: 28, amtPx: 26 },
+  { rank: 1, color: '#FFD700', glow: 'rgba(255,215,0,0.65)',  platformH: 160, avatarSize: 136, namePx: 40, amtPx: 32 },
+  { rank: 3, color: '#CD7F32', glow: 'rgba(205,127,50,0.45)', platformH: 90,  avatarSize: 82,  namePx: 22, amtPx: 22 },
 ]
+const BASE_H = 520 // px height the above values are designed for
 
 function YetToSellPanel({ entries = [] }) {
   if (!entries.length) return null
@@ -76,11 +78,25 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
   // Remap sorted entries to visual slots: [2nd, 1st, 3rd]
   const slotEntries = [top3[1] || null, top3[0] || null, top3[2] || null]
 
+  // Scale all podium sizes proportionally to available height
+  const podiumRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const el = podiumRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => {
+      setScale(Math.min(1, e.contentRect.height / BASE_H))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const s = (n) => Math.max(1, Math.round(n * scale))
+
   return (
     <div className="h-full flex gap-4 min-h-0">
 
       {/* ── PODIUM ─────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 flex flex-col min-w-0">
+      <div ref={podiumRef} className="flex-1 min-h-0 flex flex-col min-w-0">
 
         {/* Three equal-width slots */}
         <div className="flex-1 min-h-0 flex items-stretch gap-3 px-3">
@@ -102,52 +118,52 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
                       <div
                         className="rounded-full flex-shrink-0"
                         style={{
-                          padding:   slot.rank === 1 ? 6 : 4,
+                          padding:   slot.rank === 1 ? s(6) : s(4),
                           background:`${slot.color}28`,
                         }}
                       >
                         <Avatar
                           photoUrl={entry.photo_url}
                           name={entry.name}
-                          size={slot.avatarSize}
+                          size={s(slot.avatarSize)}
                           teamColor={entColor}
                         />
                       </div>
 
                       {/* Name + team */}
-                      <div className="text-center mt-3 w-full flex-shrink-0 space-y-1.5">
+                      <div className="text-center w-full flex-shrink-0 space-y-1" style={{ marginTop: s(12) }}>
                         <div
-                          className={`font-barlow font-bold ${slot.nameSize} text-white leading-tight`}
-                          style={{}}
+                          className="font-barlow font-bold text-white leading-tight"
+                          style={{ fontSize: s(slot.namePx) }}
                         >
                           {entry.name}
                         </div>
                         {entry.teamName && (
                           <div className="flex items-center justify-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: entColor }} />
-                            <span className="font-inter text-sm text-gray-400 truncate">{entry.teamName}</span>
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: entColor }} />
+                            <span className="font-inter text-gray-400 truncate" style={{ fontSize: s(13) }}>{entry.teamName}</span>
                           </div>
                         )}
                       </div>
 
                       {/* Tier badge */}
                       {entry.tier && (
-                        <div className="mt-2 flex-shrink-0">
+                        <div className="flex-shrink-0" style={{ marginTop: s(6) }}>
                           <TierBadge tier={entry.tier} />
                         </div>
                       )}
 
-                      {/* MTD / daily total — use team color to preserve team identity */}
+                      {/* MTD / daily total */}
                       <div
-                        className={`font-barlow font-bold leading-none mt-2 flex-shrink-0 tabular-nums ${slot.rank === 1 ? 'text-4xl' : 'text-3xl'}`}
-                        style={{ color: entColor }}
+                        className="font-barlow font-bold leading-none flex-shrink-0 tabular-nums"
+                        style={{ color: entColor, fontSize: s(slot.amtPx), marginTop: s(8) }}
                       >
                         {fmt(entry.total, currency)}
                       </div>
 
-                      {/* Slim quota bar — no label, matches AwardsTracker dual-bar height */}
+                      {/* Slim quota bar */}
                       {entry.quota > 0 && (
-                        <div className="w-full px-4 mt-3 flex-shrink-0">
+                        <div className="w-full flex-shrink-0" style={{ paddingLeft: s(16), paddingRight: s(16), marginTop: s(10) }}>
                           <div className="flex items-center gap-2">
                             <div className="flex-1">
                               <QuotaBar
@@ -160,8 +176,8 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
                               />
                             </div>
                             <span
-                              className="font-barlow font-bold text-xs whitespace-nowrap flex-shrink-0"
-                              style={{ color: entColor }}
+                              className="font-barlow font-bold whitespace-nowrap flex-shrink-0"
+                              style={{ color: entColor, fontSize: s(11) }}
                             >
                               {pct}%
                             </span>
@@ -171,17 +187,17 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
                     </>
                   ) : (
                     <div className="flex flex-col items-center gap-3 opacity-15 pb-2">
-                      <div className="rounded-full bg-gray-800" style={{ width: slot.avatarSize, height: slot.avatarSize }} />
+                      <div className="rounded-full bg-gray-800" style={{ width: s(slot.avatarSize), height: s(slot.avatarSize) }} />
                       <div className="font-barlow font-bold text-gray-700 text-2xl">—</div>
                     </div>
                   )}
                 </div>
 
-                {/* Platform — fixed height, pinned to bottom */}
+                {/* Platform — scales with container height */}
                 <div
                   className="w-full rounded-t-xl flex-shrink-0 flex items-center justify-center"
                   style={{
-                    height:       slot.platformH,
+                    height:       s(slot.platformH),
                     background:   entry
                       ? `linear-gradient(180deg, ${slot.color}30 0%, ${slot.color}0A 100%)`
                       : 'rgba(30,42,69,0.25)',
@@ -193,7 +209,7 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
                     className="font-barlow font-bold select-none leading-none"
                     style={{
                       color:    `${slot.color}${entry ? '38' : '12'}`,
-                      fontSize: slot.rank === 1 ? 88 : 64,
+                      fontSize: slot.rank === 1 ? s(80) : s(58),
                     }}
                   >
                     #{slot.rank}
