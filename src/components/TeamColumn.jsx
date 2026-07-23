@@ -201,7 +201,7 @@ export default function TeamColumn({
           <div className="font-barlow font-bold text-base tracking-wide flex-1 min-w-0 truncate" style={{ color }}>
             {team.name.toUpperCase()}
           </div>
-          <div className="font-barlow font-bold text-base tabular-nums flex-shrink-0" style={{ color }}>
+          <div className="font-barlow font-bold text-2xl tabular-nums flex-shrink-0" style={{ color }}>
             {fmt(teamDisplayTotal, currency)}
           </div>
           <div
