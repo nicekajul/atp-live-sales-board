@@ -102,7 +102,12 @@ function TierBadge({ tier, size = 'sm' }) {
 
 function AgentPicker({ label, accentColor, teams, members, selTeam, selMember, amount, onTeam, onMember, onAmount, currency, exclude }) {
   const teamMembers = selTeam
-    ? members.filter(m => String(m.team_id) === String(selTeam.id) && m.id !== exclude)
+    ? members.filter(m => {
+        if (m.id === exclude) return false
+        if (String(m.team_id) === String(selTeam.id)) return true
+        const linked = (m.linked_team_ids || '').split(',').map(id => id.trim()).filter(Boolean)
+        return linked.includes(String(selTeam.id))
+      })
     : []
 
   return (
@@ -233,9 +238,10 @@ function LogSaleTab({ teams, members, currency }) {
   const [saleType, setSaleType] = useState('solo') // 'solo' | 'franki'
 
   // Solo state
-  const [selTeam,   setSelTeam]   = useState(null)
-  const [selMember, setSelMember] = useState(null)
-  const [amount,    setAmount]    = useState('')
+  const [selTeam,     setSelTeam]     = useState(null)
+  const [selMember,   setSelMember]   = useState(null)
+  const [amount,      setAmount]      = useState('')
+  const [creditTeamId, setCreditTeamId] = useState(null)
 
   // Franki state — agent 1
   const [f1Team,   setF1Team]   = useState(null)
@@ -255,19 +261,33 @@ function LogSaleTab({ teams, members, currency }) {
   const [undoTimer,   setUndoTimer]   = useState(null)
   const [celebration, setCelebration] = useState(null)
 
-  const teamMembers = selTeam ? members.filter(m => String(m.team_id) === String(selTeam.id)) : []
+  const teamMembers = selTeam
+    ? members.filter(m => {
+        if (String(m.team_id) === String(selTeam.id)) return true
+        const linked = (m.linked_team_ids || '').split(',').map(id => id.trim()).filter(Boolean)
+        return linked.includes(String(selTeam.id))
+      })
+    : []
 
-  const resetSolo   = () => { setSelTeam(null); setSelMember(null); setAmount(''); setNotes(''); setClientType('existing'); setError('') }
+  // Multi-team member support: detect cross-team members and collect their linked teams
+  const isMultiTeam  = !!(selMember && (selMember.linked_team_ids || '').trim())
+  const linkedTeams  = isMultiTeam
+    ? (selMember.linked_team_ids || '').split(',').map(id => id.trim()).filter(Boolean)
+        .map(tid => teams.find(t => String(t.id) === tid)).filter(Boolean)
+    : []
+
+  const resetSolo   = () => { setSelTeam(null); setSelMember(null); setAmount(''); setNotes(''); setClientType('existing'); setError(''); setCreditTeamId(null) }
   const resetFranki = () => { setF1Team(null); setF1Member(null); setF1Amount(''); setF2Team(null); setF2Member(null); setF2Amount(''); setNotes(''); setClientType('existing'); setError('') }
 
   // ── Solo submit ──────────────────────────────────────────────────────────
   const handleSoloSubmit = async () => {
     if (!selMember) { setError('Select a team member'); return }
+    if (isMultiTeam && !creditTeamId) { setError('Select which team gets credit for this sale'); return }
     const amt = parseFloat(amount)
     if (!amt || amt <= 0) { setError('Enter a valid amount'); return }
     setError(''); setLoading(true)
     try {
-      const res = await api.logSale({ member_id: selMember.id, amount: amt, notes, client_type: clientType })
+      const res = await api.logSale({ member_id: selMember.id, amount: amt, notes, client_type: clientType, sale_team_id: creditTeamId || null })
       if (!res.success) { setError(res.error || 'Failed to log sale'); return }
 
       const timerId = setTimeout(() => setLastSale(null), 30000)
@@ -295,6 +315,8 @@ function LogSaleTab({ teams, members, currency }) {
         is_franki: true,
         franki_member_id: f2Member.id, franki_amount: amt2,
         client_type: clientType,
+        sale_team_id:        f1Team?.id || null,
+        franki_sale_team_id: f2Team?.id || null,
       })
       if (!res.success) { setError(res.error || 'Failed to log sale'); return }
 
@@ -354,7 +376,7 @@ function LogSaleTab({ teams, members, currency }) {
             <div className="grid grid-cols-3 gap-2">
               {teams.map(team => (
                 <button key={team.id}
-                  onClick={() => { setSelTeam(team); setSelMember(null) }}
+                  onClick={() => { setSelTeam(team); setSelMember(null); setCreditTeamId(null) }}
                   className="p-3 rounded-xl border font-barlow font-bold text-sm transition-all duration-200 active:scale-95"
                   style={{
                     borderColor: selTeam?.id === team.id ? team.color : '#1E2A45',
@@ -375,7 +397,7 @@ function LogSaleTab({ teams, members, currency }) {
               <div className="text-xs text-gray-500 uppercase tracking-wide font-inter mb-2">Select Member</div>
               <div className="grid grid-cols-2 gap-2">
                 {teamMembers.map(m => (
-                  <button key={m.id} onClick={() => setSelMember(m)}
+                  <button key={m.id} onClick={() => { setSelMember(m); setCreditTeamId(null) }}
                     className="flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 active:scale-95 text-left"
                     style={{
                       borderColor: selMember?.id === m.id ? selTeam.color : '#1E2A45',
@@ -397,7 +419,33 @@ function LogSaleTab({ teams, members, currency }) {
             </div>
           )}
 
-          {selMember && (
+          {/* Credit team picker — only shown for multi-team members */}
+          {selMember && isMultiTeam && (
+            <div>
+              <div className="text-xs text-yellow-400 uppercase tracking-wide font-inter mb-2 flex items-center gap-1.5">
+                <span>🌐</span> Cross-team member — which team gets credit?
+              </div>
+              <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${linkedTeams.length}, 1fr)` }}>
+                {linkedTeams.map(t => (
+                  <button key={t.id}
+                    onClick={() => setCreditTeamId(t.id)}
+                    className="py-3 rounded-xl border font-barlow font-bold text-sm transition-all duration-200 active:scale-95"
+                    style={{
+                      borderColor: creditTeamId === t.id ? t.color : '#1E2A45',
+                      background:  creditTeamId === t.id ? `${t.color}22` : '#0F1629',
+                      color:       creditTeamId === t.id ? t.color : '#6B7280',
+                      boxShadow:   creditTeamId === t.id ? `0 0 12px ${t.color}44` : 'none',
+                    }}
+                  >
+                    <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{ background: t.color }} />
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selMember && (!isMultiTeam || creditTeamId) && (
             <>
               <div>
                 <div className="text-xs text-gray-500 uppercase tracking-wide font-inter mb-2">Sale Amount ({currency})</div>
@@ -433,7 +481,7 @@ function LogSaleTab({ teams, members, currency }) {
 
           {error && <p className="text-red-400 font-inter text-sm">{error}</p>}
 
-          {selMember && (
+          {selMember && (!isMultiTeam || creditTeamId) && (
             <button onClick={handleSoloSubmit} disabled={loading}
               className="w-full py-4 rounded-xl font-barlow font-black text-2xl transition-all duration-200 active:scale-95 disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #00F5A022, #00C47E22)', border: '2px solid #00F5A077', color: '#00F5A0', boxShadow: '0 0 20px rgba(0,245,160,0.2)' }}
@@ -563,11 +611,11 @@ function MembersTab({ teams, members, tierQuotas, onRefresh }) {
   const [showForm,  setShowForm]  = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [loading,   setLoading]   = useState(false)
-  const emptyForm = { name: '', team_id: teams[0]?.id || '', photo_url: '', quota_individual: '', tier: '' }
+  const emptyForm = { name: '', team_id: '', photo_url: '', quota_individual: '', tier: '', linked_team_ids: '' }
   const [form, setForm] = useState(emptyForm)
 
   const startAdd = () => {
-    setForm({ ...emptyForm, team_id: teams[0]?.id || '' })
+    setForm({ ...emptyForm })
     setEditingId(null)
     setShowForm(true)
   }
@@ -575,10 +623,11 @@ function MembersTab({ teams, members, tierQuotas, onRefresh }) {
   const startEdit = (m) => {
     setForm({
       name:             m.name,
-      team_id:          m.team_id,
+      team_id:          m.team_id          || '',
       photo_url:        m.photo_url        || '',
       quota_individual: String(m.quota_individual || ''),
       tier:             m.tier             || '',
+      linked_team_ids:  m.linked_team_ids  || '',
     })
     setEditingId(m.id)
     setShowForm(true)
@@ -627,16 +676,48 @@ function MembersTab({ teams, members, tierQuotas, onRefresh }) {
           </div>
           <Input label="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
 
-          {/* Team */}
+          {/* Primary Team */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500 uppercase tracking-wide">Team</label>
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Primary Team</label>
             <select
               value={form.team_id}
               onChange={e => setForm(f => ({ ...f, team_id: e.target.value }))}
               className="bg-board-bg border border-board-border rounded-lg px-3 py-2 text-white font-inter text-sm focus:outline-none focus:border-neon-green/50"
             >
+              <option value="">— No Primary Team (cross-team member) —</option>
               {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+          </div>
+
+          {/* Linked Teams — for cross-team members who log sales under multiple teams */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 uppercase tracking-wide">Linked Teams</label>
+            <div className="text-xs text-gray-600 font-inter mb-1">
+              For members who log sales under multiple teams (e.g. assistant managers). The manager will pick which team gets credit each sale.
+            </div>
+            <div className="flex flex-col gap-1.5 pl-1">
+              {teams.map(t => {
+                const ids     = (form.linked_team_ids || '').split(',').map(id => id.trim()).filter(Boolean)
+                const checked = ids.includes(String(t.id))
+                return (
+                  <label key={t.id} className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={e => {
+                        const cur    = (form.linked_team_ids || '').split(',').map(id => id.trim()).filter(Boolean)
+                        const newIds = e.target.checked
+                          ? [...new Set([...cur, String(t.id)])]
+                          : cur.filter(id => id !== String(t.id))
+                        setForm(f => ({ ...f, linked_team_ids: newIds.join(',') }))
+                      }}
+                      className="w-4 h-4 rounded"
+                    />
+                    <span className="font-barlow font-bold text-sm" style={{ color: t.color }}>{t.name}</span>
+                  </label>
+                )
+              })}
+            </div>
           </div>
 
           {/* Tier */}
@@ -726,6 +807,47 @@ function MembersTab({ teams, members, tierQuotas, onRefresh }) {
           </div>
         )
       })}
+
+      {/* Cross-team members (no primary team, linked to multiple teams) */}
+      {(() => {
+        const crossTeam = members.filter(m => !m.team_id && (m.linked_team_ids || '').trim())
+        if (!crossTeam.length) return null
+        return (
+          <div>
+            <div className="font-barlow font-bold text-sm uppercase tracking-widest mb-2" style={{ color: '#F59E0B' }}>
+              🌐 Cross-Team Members ({crossTeam.length})
+            </div>
+            <div className="space-y-2">
+              {crossTeam.map(m => {
+                const linkedNames = (m.linked_team_ids || '').split(',').map(id => id.trim()).filter(Boolean)
+                  .map(tid => teams.find(t => String(t.id) === tid)?.name).filter(Boolean)
+                return (
+                  <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl border bg-board-card"
+                    style={{ borderColor: '#F59E0B44' }}>
+                    <Avatar photoUrl={m.photo_url} name={m.name} size={36} teamColor="#F59E0B" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-inter font-semibold text-sm text-white truncate">{m.name}</div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {m.tier && <TierBadge tier={m.tier} />}
+                        <span className="font-inter text-xs text-gray-600">
+                          Quota: {fmt(m.quota_individual > 0 ? m.quota_individual : (tierQuotas[m.tier] || 0))}
+                        </span>
+                        {linkedNames.length > 0 && (
+                          <span className="font-inter text-xs" style={{ color: '#F59E0B' }}>
+                            Linked: {linkedNames.join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Btn variant="ghost" onClick={() => startEdit(m)} className="text-xs px-2 py-1">Edit</Btn>
+                    <Btn variant="danger" onClick={() => handleDelete(m.id)} className="text-xs px-2 py-1">×</Btn>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

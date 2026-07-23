@@ -390,18 +390,40 @@ function getBoard() {
   teams.forEach(t   => { teamTotals[t.id]   = 0; teamTotalsToday[t.id]   = 0; });
   members.forEach(m => { memberTotals[m.id] = 0; memberTotalsToday[m.id] = 0; });
 
+  // Pre-compute executive Franki redirects:
+  // When an executive is in a Franki sale with a non-executive, the executive's amount
+  // is credited to the non-executive partner's team instead of Team Executives.
+  var execFrankiRedirects = {};
+  salesMTD.forEach(function(s) {
+    var m = members.filter(function(m) { return String(m.id) === String(s.member_id); })[0];
+    if (!m || String(m.is_executive) !== 'true') return;
+    var fi = parseFrankiNote(s.notes);
+    if (!fi) return;
+    var partner = members.filter(function(m) { return String(m.id) === String(fi.partnerId); })[0];
+    if (partner && String(partner.is_executive) !== 'true' && partner.team_id) {
+      execFrankiRedirects[String(s.id)] = String(partner.team_id);
+    }
+  });
+
   salesMTD.forEach(s => {
     const amt    = parseFloat(s.amount) || 0;
     const member = members.find(m => String(m.id) === String(s.member_id));
     memberTotals[s.member_id] = (memberTotals[s.member_id] || 0) + amt;
-    if (member) teamTotals[member.team_id] = (teamTotals[member.team_id] || 0) + amt;
+    // Credit priority: exec Franki redirect > explicit sale_team_id override > member's default team
+    const teamId = execFrankiRedirects[String(s.id)]
+                || (s.sale_team_id ? String(s.sale_team_id) : null)
+                || (member ? String(member.team_id) : null);
+    if (teamId) teamTotals[teamId] = (teamTotals[teamId] || 0) + amt;
   });
 
   salesToday.forEach(s => {
     const amt    = parseFloat(s.amount) || 0;
     const member = members.find(m => String(m.id) === String(s.member_id));
     memberTotalsToday[s.member_id] = (memberTotalsToday[s.member_id] || 0) + amt;
-    if (member) teamTotalsToday[member.team_id] = (teamTotalsToday[member.team_id] || 0) + amt;
+    const teamId = execFrankiRedirects[String(s.id)]
+                || (s.sale_team_id ? String(s.sale_team_id) : null)
+                || (member ? String(member.team_id) : null);
+    if (teamId) teamTotalsToday[teamId] = (teamTotalsToday[teamId] || 0) + amt;
   });
 
   const siteTotal = salesMTD.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
@@ -603,7 +625,8 @@ function verifyPin(payload) {
 }
 
 function logSale(payload) {
-  const { member_id, amount, notes, is_franki, franki_member_id, franki_amount, client_type } = payload;
+  const { member_id, amount, notes, is_franki, franki_member_id, franki_amount, client_type,
+          sale_team_id, franki_sale_team_id } = payload;
   const now   = new Date();
   const month = now.getMonth() + 1;
   const year  = now.getFullYear();
@@ -627,13 +650,15 @@ function logSale(payload) {
       id: generateId(), member_id: String(member_id), member_name: primaryName,
       amount: parseFloat(amount),
       notes: encodeFrankiNote(pairId, franki_member_id, franki_amount, encodedNotes),
-      timestamp: ts, month: month, year: year
+      timestamp: ts, month: month, year: year,
+      sale_team_id: sale_team_id || ''
     };
     var sale2 = {
       id: generateId(), member_id: String(franki_member_id), member_name: frankiName,
       amount: parseFloat(franki_amount),
       notes: encodeFrankiNote(pairId, member_id, parseFloat(amount), encodedNotes),
-      timestamp: ts, month: month, year: year
+      timestamp: ts, month: month, year: year,
+      sale_team_id: franki_sale_team_id || ''
     };
 
     appendRow('sales', sale1);
@@ -722,7 +747,8 @@ function logSale(payload) {
     notes:       encodedNotes,
     timestamp:   ts,
     month:       month,
-    year:        year
+    year:        year,
+    sale_team_id: sale_team_id || ''
   };
   appendRow('sales', sale);
   if (client_type === 'new') {
@@ -731,7 +757,9 @@ function logSale(payload) {
 
   var boardData  = getBoard().data;
   var member     = boardData.members.filter(function(m) { return String(m.id) === String(member_id); })[0] || null;
-  var team       = member ? (boardData.teams.filter(function(t) { return String(t.id) === String(member.team_id); })[0] || null) : null;
+  // For multi-team members, use the explicit sale_team_id; otherwise fall back to the member's primary team
+  var creditedTeamId = sale_team_id || (member ? member.team_id : null);
+  var team       = creditedTeamId ? (boardData.teams.filter(function(t) { return String(t.id) === String(creditedTeamId); })[0] || null) : null;
   var saleAmt    = parseFloat(amount);
   var memberMTD  = boardData.memberTotals[member_id]     || 0;
   var teamMTD    = team ? (boardData.teamTotals[team.id] || 0) : 0;
@@ -783,11 +811,12 @@ function addMember(payload) {
   const id = generateId();
   const member = {
     id,
-    team_id:          String(payload.team_id),
+    team_id:          String(payload.team_id || ''),
     name:             payload.name,
     photo_url:        payload.photo_url       || '',
     quota_individual: parseFloat(payload.quota_individual) || 0,
-    tier:             payload.tier            || ''
+    tier:             payload.tier            || '',
+    linked_team_ids:  payload.linked_team_ids || '',
   };
   appendRow('members', member);
   return { success: true, data: member };
@@ -795,11 +824,12 @@ function addMember(payload) {
 
 function editMember(payload) {
   updateRowById('members', payload.id, {
-    team_id:          String(payload.team_id),
+    team_id:          String(payload.team_id || ''),
     name:             payload.name,
     photo_url:        payload.photo_url       || '',
     quota_individual: parseFloat(payload.quota_individual) || 0,
-    tier:             payload.tier            || ''
+    tier:             payload.tier            || '',
+    linked_team_ids:  payload.linked_team_ids || '',
   });
   return { success: true, data: payload };
 }
@@ -1254,6 +1284,28 @@ function migrateFrankiColumns() {
 // Run setupSheets() once from the Apps Script editor to create
 // all tabs with headers, tiers, and realistic demo data.
 
+// Run migrateAddColumns() once from the Apps Script editor to add
+// new columns to existing live spreadsheets without destroying data.
+function migrateAddColumns() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  function addColumnIfMissing(sheetName, colName) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return sheetName + ' sheet not found';
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+    if (headers.indexOf(colName) !== -1) return colName + ' already exists in ' + sheetName;
+    sheet.getRange(1, sheet.getLastColumn() + 1).setValue(colName);
+    return 'Added ' + colName + ' to ' + sheetName;
+  }
+
+  var results = [
+    addColumnIfMissing('members', 'linked_team_ids'),
+    addColumnIfMissing('sales',   'sale_team_id'),
+  ];
+  Logger.log(results.join('\n'));
+  return results.join('\n');
+}
+
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -1267,8 +1319,8 @@ function setupSheets() {
   }
 
   // Create sheets
-  ensureSheet('members',    ['id', 'team_id', 'name', 'photo_url', 'quota_individual', 'tier']);
-  ensureSheet('sales',      ['id', 'member_id', 'member_name', 'amount', 'notes', 'timestamp', 'month', 'year']);
+  ensureSheet('members',    ['id', 'team_id', 'name', 'photo_url', 'quota_individual', 'tier', 'linked_team_ids']);
+  ensureSheet('sales',      ['id', 'member_id', 'member_name', 'amount', 'notes', 'timestamp', 'month', 'year', 'sale_team_id']);
   ensureSheet('teams',      ['id', 'name', 'color']);
   ensureSheet('quotas',     ['month', 'year', 'team_id', 'team_quota', 'site_quota']);
   ensureSheet('settings',   ['key', 'value']);
