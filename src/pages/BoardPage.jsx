@@ -26,6 +26,8 @@ const CYCLE_VIEWS = [
   { id: 'individual',  label: 'TOP AGENTS',     icon: '🏆', color: '#EAB308', duration: 12 },
   { id: 'walloffame',  label: 'WALL OF FAME',   icon: '⭐', color: '#A855F7', duration: 12 },
   { id: 'today',       label: "TODAY'S SALES",  icon: '⚡', color: '#F97316', duration: 10 },
+  { id: 'awards-quarterly', label: 'QUARTERLY AWARDS', icon: '🏅', color: '#F59E0B', duration: 15, manual: true },
+  { id: 'awards-yearly',    label: 'YEARLY AWARDS',    icon: '🚗', color: '#F59E0B', duration: 15, manual: true },
 ]
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -184,7 +186,11 @@ export default function BoardPage() {
       setCycleProgress(Math.max(0, 100 - (elapsed / duration) * 100))
       if (elapsed >= duration) {
         clearInterval(id)
-        setCycleIdx(i => (i + 1) % CYCLE_VIEWS.length)
+        setCycleIdx(i => {
+          let next = (i + 1) % CYCLE_VIEWS.length
+          while (CYCLE_VIEWS[next].manual) next = (next + 1) % CYCLE_VIEWS.length
+          return next
+        })
         setCycleProgress(100)
         setViewKey(k => k + 1)
       }
