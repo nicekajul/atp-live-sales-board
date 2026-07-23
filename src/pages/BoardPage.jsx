@@ -431,7 +431,7 @@ export default function BoardPage() {
             className="w-3 h-3 rounded-full bg-neon-green animate-live-pulse"
             style={{ boxShadow: '0 0 8px #00F5A0' }}
           />
-          <h1 className="font-barlow font-black text-3xl tracking-tight text-neon-green">
+          <h1 className="font-barlow font-bold text-3xl tracking-tight text-neon-green">
             {siteName.toUpperCase()}
           </h1>
           <span className="font-barlow font-medium text-xl text-gray-500 tracking-wide">— LIVE SALES BOARD</span>
