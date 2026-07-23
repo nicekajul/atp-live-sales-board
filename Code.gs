@@ -430,7 +430,9 @@ function getBoard() {
   });
 
   // Recent sales — detect Franki pairs via notes encoding, merge into one entry each
-  var sorted    = salesMTD.slice().sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+  // Reverse instead of sorting by timestamp: new sales are always appended last in the sheet,
+  // so reversing is reliable regardless of timestamp format/type returned by getValues().
+  var sorted    = salesMTD.slice().reverse();
   var seenPairs = {};
   var merged    = [];
   sorted.forEach(function(s) {

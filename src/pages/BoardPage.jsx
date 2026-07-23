@@ -15,6 +15,9 @@ import HallOfFame                from '../components/HallOfFame.jsx'
 import WallOfFame                from '../components/WallOfFame.jsx'
 import CelebrationPopup          from '../components/CelebrationPopup.jsx'
 
+// Persists the last-seen sale ID across SPA navigation without sessionStorage type coercion issues
+let _lastSeenSaleId = null
+
 // ── Cycle view definitions ──────────────────────────────────────────────────
 const CYCLE_VIEWS = [
   { id: 'main',        label: 'LIVE BOARD',     icon: '📊', color: '#00F5A0', duration: 18 },
@@ -170,7 +173,7 @@ export default function BoardPage() {
   const [incentiveUpgrade,  setIncentiveUpgrade]  = useState(null)
   const [selectedMember,    setSelectedMember]    = useState(null)
 
-  const prevSaleIdRef     = useRef(sessionStorage.getItem('_lastSaleId') || null)
+  const prevSaleIdRef     = useRef(_lastSeenSaleId)
   const prevBoardRef      = useRef(null)   // holds last known board for quota-crossing diff
   const prevTeamPcts      = useRef({})
   const milestonesSeeded  = useRef(false)  // skip toasts on first board load
@@ -220,7 +223,7 @@ export default function BoardPage() {
     if (!board) return
     const latest = board.recentSales?.[0]
 
-    if (latest && prevSaleIdRef.current && latest.id !== prevSaleIdRef.current) {
+    if (latest && prevSaleIdRef.current && String(latest.id) !== prevSaleIdRef.current) {
       const prev   = prevBoardRef.current
       const member = board.members.find(m => String(m.id) === String(latest.member_id))
       const team   = member ? board.teams.find(t => String(t.id) === String(member.team_id)) : null
@@ -336,8 +339,9 @@ export default function BoardPage() {
     }
 
     if (latest) {
-      prevSaleIdRef.current = latest.id
-      sessionStorage.setItem('_lastSaleId', latest.id)
+      const sid = String(latest.id)
+      prevSaleIdRef.current = sid
+      _lastSeenSaleId = sid
     }
     prevBoardRef.current = board
   }, [board])
