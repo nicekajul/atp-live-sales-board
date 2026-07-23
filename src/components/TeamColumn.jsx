@@ -198,7 +198,7 @@ export default function TeamColumn({
         }}
       >
         <div className="flex items-center gap-2">
-          <div className="font-barlow font-bold text-base tracking-wide flex-1 min-w-0 truncate" style={{ color }}>
+          <div className="font-barlow font-bold text-xl tracking-wide flex-1 min-w-0 truncate" style={{ color }}>
             {team.name.toUpperCase()}
           </div>
           <div className="font-barlow font-bold text-2xl tabular-nums flex-shrink-0" style={{ color }}>
