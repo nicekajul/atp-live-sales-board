@@ -212,7 +212,7 @@ function HighFlyersPanel({ members, currency }) {
           </div>
         ) : (
           members.map((m, i) => {
-            const pct    = m.quota > 0 ? Math.min(999, Math.round((m.total / m.quota) * 100)) : null
+            const pct    = m.quota > 0 ? Math.round((m.total / m.quota) * 100) : null
             const color  = '#00F5A0'
             return (
               <div

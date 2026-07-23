@@ -1,5 +1,6 @@
 export default function QuotaBar({ current = 0, quota = 0, color = '#00F5A0', size = 'md', showLabel = true, currency = 'PHP' }) {
-  const pct    = quota > 0 ? Math.min(100, (current / quota) * 100) : 0
+  const pct    = quota > 0 ? (current / quota) * 100 : 0
+  const barPct = Math.min(100, pct)
   const hit    = pct >= 100
   const height = { sm: 'h-1.5', md: 'h-2.5', lg: 'h-4', xl: 'h-5' }[size] || 'h-2.5'
 
@@ -22,7 +23,7 @@ export default function QuotaBar({ current = 0, quota = 0, color = '#00F5A0', si
         <div
           className="h-full rounded-full transition-all duration-1000 ease-out"
           style={{
-            width:      `${pct}%`,
+            width:      `${barPct}%`,
             background: `linear-gradient(90deg, ${color}66, ${color})`,
             boxShadow:  'none',
           }}

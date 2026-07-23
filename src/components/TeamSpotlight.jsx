@@ -50,7 +50,7 @@ export default function TeamSpotlight({
 
   const color        = team.color || '#00F5A0'
   const displayTotal = viewMode === 'daily' ? teamTotalToday : teamTotal
-  const pct          = teamQuota > 0 ? Math.min(100, (displayTotal / teamQuota) * 100) : 0
+  const pct          = teamQuota > 0 ? (displayTotal / teamQuota) * 100 : 0
 
   // Rank this team vs its peers (passed via allTeams)
   const teamRanks = [...allTeams].sort((a, b) => {
@@ -94,7 +94,7 @@ export default function TeamSpotlight({
         const stColor   = st.color || color
         const stTotal   = viewMode === 'daily' ? (subTeamTotalsToday[st.id] || 0) : (subTeamTotals[st.id] || 0)
         const stQuota   = subTeamQuotas[st.id] || 0
-        const stPct     = stQuota > 0 ? Math.min(100, (stTotal / stQuota) * 100) : 0
+        const stPct     = stQuota > 0 ? (stTotal / stQuota) * 100 : 0
         const stMembers = allMembers.filter(m => String(m.team_id) === String(st.id))
         const topMember = [...stMembers]
           .map(m => ({ ...m, _total: viewMode === 'daily' ? (memberTotalsToday[m.id] || 0) : (memberTotals[m.id] || 0) }))

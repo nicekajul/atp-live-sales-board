@@ -134,7 +134,7 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
             const entry    = slotEntries[si]
             const entColor = entry?.teamColor || slot.color
             const pct      = entry?.quota > 0
-              ? Math.min(100, Math.round((entry.total / entry.quota) * 100))
+              ? Math.round((entry.total / entry.quota) * 100)
               : null
 
             return (
@@ -273,7 +273,7 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
             {rest.map((entry, i) => {
               const color = entry.teamColor || '#6B7280'
               const pct   = entry.quota > 0
-                ? Math.min(999, Math.round((entry.total / entry.quota) * 100))
+                ? Math.round((entry.total / entry.quota) * 100)
                 : null
               return (
                 <div

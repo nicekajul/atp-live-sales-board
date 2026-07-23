@@ -78,7 +78,7 @@ function MemberCard({ m, rank, accentColor, memberTotals, memberTotalsToday, mem
                       memberStreaks, memberIncentiveLevels, currency, viewMode }) {
   const total    = viewMode === 'daily' ? (memberTotalsToday[m.id] || 0) : (memberTotals[m.id] || 0)
   const quota    = memberQuotas[m.id] || 0
-  const pct      = quota > 0 ? Math.min(999, Math.round((total / quota) * 100)) : null
+  const pct      = quota > 0 ? Math.round((total / quota) * 100) : null
   const quotaHit = quota > 0 && total >= quota
   const streak   = memberStreaks[m.id] || 0
 
@@ -140,14 +140,14 @@ export default function TeamColumn({
   const isFirst = rank === 0
 
   const teamDisplayTotal = viewMode === 'daily' ? teamTotalToday : teamTotal
-  const pct = teamQuota > 0 ? Math.min(100, (teamDisplayTotal / teamQuota) * 100) : 0
+  const pct = teamQuota > 0 ? (teamDisplayTotal / teamQuota) * 100 : 0
 
   // Build per-sub-team member lists sorted by total
   const subSections = (subTeams || []).map(st => {
     const stColor   = st.color || color
     const stTotal   = viewMode === 'daily' ? (subTeamTotalsToday?.[st.id] || 0) : (subTeamTotals?.[st.id] || 0)
     const stQuota   = subTeamQuotas?.[st.id] || 0
-    const stPct     = stQuota > 0 ? Math.min(100, (stTotal / stQuota) * 100) : 0
+    const stPct     = stQuota > 0 ? (stTotal / stQuota) * 100 : 0
     const allSt = (allMembers || [])
       .filter(m => String(m.team_id) === String(st.id))
       .map(m => ({ ...m, _total: viewMode === 'daily' ? (memberTotalsToday[m.id] || 0) : (memberTotals[m.id] || 0) }))
