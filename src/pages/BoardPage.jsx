@@ -26,8 +26,6 @@ const CYCLE_VIEWS = [
   { id: 'individual',  label: 'TOP AGENTS',     icon: '🏆', color: '#EAB308', duration: 12 },
   { id: 'walloffame',  label: 'WALL OF FAME',   icon: '⭐', color: '#A855F7', duration: 12 },
   { id: 'today',       label: "TODAY'S SALES",  icon: '⚡', color: '#F97316', duration: 10 },
-  { id: 'awards-quarterly', label: 'QUARTERLY AWARDS', icon: '🏅', color: '#F59E0B', duration: 15 },
-  { id: 'awards-yearly',    label: 'YEARLY AWARDS',    icon: '🚗', color: '#F59E0B', duration: 15 },
 ]
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -164,6 +162,7 @@ export default function BoardPage() {
   const [cycleIdx,      setCycleIdx]      = useState(0)
   const [cycleProgress, setCycleProgress] = useState(100)
   const [viewKey,       setViewKey]       = useState(0)
+
 
   const [incentiveSummary,  setIncentiveSummary]  = useState(null)
   const [incentiveUpgrade,  setIncentiveUpgrade]  = useState(null)
@@ -653,15 +652,6 @@ export default function BoardPage() {
         </div>
       </div>
 
-      {celebration && (
-        <CelebrationPopup
-          celebration={celebration}
-          teamColor={celebration.teamColor}
-          currency={currency}
-          onDismiss={() => setCelebration(null)}
-        />
-      )}
-
       {!celebration && incentiveUpgrade?.upgraded && (
         <IncentiveCelebrationPopup
           upgrade={incentiveUpgrade}
@@ -676,6 +666,16 @@ export default function BoardPage() {
           onClose={() => setSelectedMember(null)}
         />
       )}
+
+      {celebration && (
+        <CelebrationPopup
+          celebration={celebration}
+          teamColor={celebration.teamColor}
+          currency={currency}
+          onDismiss={() => setCelebration(null)}
+        />
+      )}
+
     </div>
   )
 }

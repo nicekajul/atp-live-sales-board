@@ -187,7 +187,7 @@ var YEARLY_PERKS_BASE = [
 var YEARLY_TRAVEL = {
   "Executive Circle":   'Leisure: Local travel for 2 (Palawan, Batanes, or Siargao) — airfare + hotel, 3 nights',
   "President's Circle": 'Leisure: International travel for 2 (Thailand, Vietnam, or Bali) — airfare + hotel, 3 nights',
-  "Chairman's Circle":  'Leisure: International travel for 2 (Maldives, Japan, South Korea, Australia, or Kazakhstan) — airfare + hotel, 3 nights'
+  "Chairman\'s Circle":  'Leisure: International travel for 2 (Maldives, Japan, South Korea, Australia, or Kazakhstan) — airfare + hotel, 3 nights'
 };
 
 function computeQualification(salesUSD, newClients, periodType) {
