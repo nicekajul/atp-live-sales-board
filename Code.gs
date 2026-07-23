@@ -298,6 +298,10 @@ function toDateStr(ts) {
   try { return new Date(ts).toDateString(); } catch (e) { return ''; }
 }
 
+function formatTimestamp(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'M/d/yyyy h:mm a');
+}
+
 // ─── GET HANDLERS ────────────────────────────────────────────
 
 function getTeamsHandler() {
@@ -601,25 +605,33 @@ function logSale(payload) {
   const now   = new Date();
   const month = now.getMonth() + 1;
   const year  = now.getFullYear();
+  const ts    = formatTimestamp(now);
+
+  // Look up member names to store alongside member_id in the sheet
+  var allMembers   = getSheetData('members');
+  var primaryMember  = allMembers.filter(function(m) { return String(m.id) === String(member_id); })[0]        || null;
+  var primaryName    = primaryMember ? primaryMember.name : '';
 
   // Encode client type into notes before any further encoding
   var encodedNotes = encodeClientTypeNote(client_type === 'new', notes || '');
 
   if (is_franki && franki_member_id) {
     // ── Franki sale: two rows, linked via encoded notes (no schema change needed)
-    var pairId = generateId();
+    var pairId      = generateId();
+    var frankiMember = allMembers.filter(function(m) { return String(m.id) === String(franki_member_id); })[0] || null;
+    var frankiName   = frankiMember ? frankiMember.name : '';
 
     var sale1 = {
-      id: generateId(), member_id: String(member_id),
+      id: generateId(), member_id: String(member_id), member_name: primaryName,
       amount: parseFloat(amount),
       notes: encodeFrankiNote(pairId, franki_member_id, franki_amount, encodedNotes),
-      timestamp: now.toISOString(), month: month, year: year
+      timestamp: ts, month: month, year: year
     };
     var sale2 = {
-      id: generateId(), member_id: String(franki_member_id),
+      id: generateId(), member_id: String(franki_member_id), member_name: frankiName,
       amount: parseFloat(franki_amount),
       notes: encodeFrankiNote(pairId, member_id, parseFloat(amount), encodedNotes),
-      timestamp: now.toISOString(), month: month, year: year
+      timestamp: ts, month: month, year: year
     };
 
     appendRow('sales', sale1);
@@ -701,13 +713,14 @@ function logSale(payload) {
   // ── Solo sale ─────────────────────────────────────────────────────────────
   var id   = generateId();
   var sale = {
-    id: id,
-    member_id: String(member_id),
-    amount:    parseFloat(amount),
-    notes:     encodedNotes,
-    timestamp: now.toISOString(),
-    month:     month,
-    year:      year
+    id:          id,
+    member_id:   String(member_id),
+    member_name: primaryName,
+    amount:      parseFloat(amount),
+    notes:       encodedNotes,
+    timestamp:   ts,
+    month:       month,
+    year:        year
   };
   appendRow('sales', sale);
   if (client_type === 'new') {
@@ -1168,6 +1181,41 @@ function seedData() {
 }
 
 // ─── MIGRATION ───────────────────────────────────────────────
+// Run migrateAgentNameColumn() once from the Apps Script editor
+// to add the member_name column to the sales sheet.
+
+function migrateAgentNameColumn() {
+  var ss      = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet   = ss.getSheetByName('sales');
+  if (!sheet) { SpreadsheetApp.getUi().alert('sales sheet not found'); return; }
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+  if (headers.indexOf('member_name') >= 0) {
+    SpreadsheetApp.getUi().alert('✅ member_name column already exists — no changes needed.');
+    return;
+  }
+
+  // Insert member_name after member_id (col 2 → new col 3)
+  var memberIdCol = headers.indexOf('member_id');
+  var insertAfter = memberIdCol >= 0 ? memberIdCol + 2 : headers.length + 1;
+  sheet.insertColumnAfter(insertAfter - 1);
+  sheet.getRange(1, insertAfter).setValue('member_name');
+
+  // Back-fill existing rows with the agent name from the members sheet
+  var members = getSheetData('members');
+  var data    = sheet.getDataRange().getValues();
+  var newHeaders = data[0].map(String);
+  var midCol  = newHeaders.indexOf('member_id')  + 1;
+  var mnCol   = newHeaders.indexOf('member_name') + 1;
+  for (var i = 1; i < data.length; i++) {
+    var mid    = String(data[i][midCol - 1]);
+    var member = members.filter(function(m) { return String(m.id) === mid; })[0] || null;
+    if (member) sheet.getRange(i + 1, mnCol).setValue(member.name);
+  }
+
+  SpreadsheetApp.getUi().alert('✅ Migration complete! member_name column added and back-filled.');
+}
+
 // Run migrateFrankiColumns() once from the Apps Script editor
 // to add the two new columns needed for Franki sales tracking.
 
@@ -1218,7 +1266,7 @@ function setupSheets() {
 
   // Create sheets
   ensureSheet('members',    ['id', 'team_id', 'name', 'photo_url', 'quota_individual', 'tier']);
-  ensureSheet('sales',      ['id', 'member_id', 'amount', 'notes', 'timestamp', 'month', 'year']);
+  ensureSheet('sales',      ['id', 'member_id', 'member_name', 'amount', 'notes', 'timestamp', 'month', 'year']);
   ensureSheet('teams',      ['id', 'name', 'color']);
   ensureSheet('quotas',     ['month', 'year', 'team_id', 'team_quota', 'site_quota']);
   ensureSheet('settings',   ['key', 'value']);
