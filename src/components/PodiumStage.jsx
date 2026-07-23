@@ -8,10 +8,11 @@ function useAutoScroll(dep) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    let pos = 0, paused = false, timer = null
+    let pos = 0, paused = false, timer = null, raf
+
     const tick = () => {
       if (!paused && el.scrollHeight > el.clientHeight) {
-        pos += 0.4
+        pos += 0.25
         const max = el.scrollHeight - el.clientHeight
         if (pos >= max) {
           pos = max
@@ -23,9 +24,10 @@ function useAutoScroll(dep) {
       }
       raf = requestAnimationFrame(tick)
     }
-    let raf = requestAnimationFrame(tick)
-    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
-  }, [dep]) // re-init when list length changes
+
+    const startTimer = setTimeout(() => { raf = requestAnimationFrame(tick) }, 1000)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(startTimer) }
+  }, [dep])
   return ref
 }
 

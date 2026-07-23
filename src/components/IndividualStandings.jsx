@@ -28,13 +28,13 @@ export default function IndividualStandings({
     <div className="h-full flex flex-col px-5 py-3 gap-3 animate-view-enter">
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-4xl">🏆</span>
+        <div className="flex items-center gap-4">
+          <div className="w-2 h-12 rounded-full flex-shrink-0" style={{ background: '#EAB308' }} />
           <div>
-            <div className="font-barlow font-black text-4xl text-white tracking-tight leading-none">
-              INDIVIDUAL STANDINGS
+            <div className="font-barlow font-bold text-5xl tracking-wide uppercase leading-none" style={{ color: '#EAB308' }}>
+              TOP AGENTS
             </div>
-            <div className="font-inter text-sm text-gray-500">{label}</div>
+            <div className="font-inter text-sm text-gray-500 mt-0.5">{label}</div>
           </div>
         </div>
         <div className="font-inter text-sm text-gray-600">

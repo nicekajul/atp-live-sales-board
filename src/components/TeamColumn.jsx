@@ -1,6 +1,35 @@
+import { useEffect, useRef } from 'react'
 import QuotaBar from './QuotaBar.jsx'
 import Avatar   from './Avatar.jsx'
 import { TIER_COLORS } from '../constants/tiers.js'
+
+function useAutoScroll(dep) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let pos = 0, paused = false, timer = null, raf
+
+    const tick = () => {
+      if (!paused && el.scrollHeight > el.clientHeight) {
+        pos += 0.25
+        const max = el.scrollHeight - el.clientHeight
+        if (pos >= max) {
+          pos = max
+          paused = true
+          timer = setTimeout(() => { pos = 0; el.scrollTop = 0; paused = false }, 1800)
+        } else {
+          el.scrollTop = pos
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+
+    const startTimer = setTimeout(() => { raf = requestAnimationFrame(tick) }, 1000)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(startTimer) }
+  }, [dep])
+  return ref
+}
 
 function fmt(n, currency = 'PHP') {
   return `${currency} ${Number(n || 0).toLocaleString()}`
@@ -134,6 +163,20 @@ export default function TeamColumn({
     .map(m => ({ ...m, _total: viewMode === 'daily' ? (memberTotalsToday[m.id] || 0) : (memberTotals[m.id] || 0) }))
     .sort((a, b) => b._total - a._total)
 
+  // Compute YTS list up-front so we can use its length as auto-scroll dep
+  const allYetToSell = [
+    ...subSections.flatMap(({ yetToSell, stColor, st }) =>
+      yetToSell.map(m => ({ ...m, _stColor: stColor, _stName: st.name }))
+    ),
+    ...sortedDirect
+      .filter(m => m._total === 0)
+      .map(m => ({ ...m, _stColor: color, _stName: team.name })),
+  ]
+
+  const totalSellers = subSections.reduce((n, s) => n + s.sellers.length, 0) + sortedDirect.filter(m => m._total > 0).length
+  const sellersScrollRef = useAutoScroll(totalSellers)
+  const ytsScrollRef     = useAutoScroll(allYetToSell.length)
+
   const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
   const RANK_LABELS = ['#1', '#2', '#3']
 
@@ -185,7 +228,7 @@ export default function TeamColumn({
       <div className="flex-1 min-h-0 flex gap-2 px-2 py-2">
 
         {/* Left: sellers grouped by sub-team */}
-        <div className="flex-1 min-w-0 overflow-y-auto space-y-3 pr-1">
+        <div ref={sellersScrollRef} className="flex-1 min-w-0 overflow-y-auto space-y-3 pr-1">
           {subSections.map(({ st, stColor, stTotal, stQuota, stPct, sellers }) => (
             <div key={st.id}>
               {/* Sub-team header */}
@@ -250,44 +293,34 @@ export default function TeamColumn({
         </div>
 
         {/* Right: Yet to Sell — sub-team members + direct members with zero total */}
-        {(() => {
-          const fromSubTeams = subSections.flatMap(({ yetToSell, stColor, st }) =>
-            yetToSell.map(m => ({ ...m, _stColor: stColor, _stName: st.name }))
-          )
-          const fromDirect = sortedDirect
-            .filter(m => m._total === 0)
-            .map(m => ({ ...m, _stColor: color, _stName: team.name }))
-          const allYetToSell = [...fromSubTeams, ...fromDirect]
-          if (!allYetToSell.length) return null
-          return (
-            <div className="w-32 flex-shrink-0 min-h-0 flex flex-col border-l border-gray-800 pl-2">
-              <div className="flex items-center gap-1 mb-2 flex-shrink-0">
-                <span className="font-inter text-xs text-gray-700 uppercase tracking-widest whitespace-nowrap">
-                  ⏳ YTS
-                </span>
-                <span className="font-barlow font-bold text-xs text-gray-700">({allYetToSell.length})</span>
-              </div>
-              <div className="flex-1 overflow-y-auto space-y-1.5">
-                {allYetToSell.map(m => (
-                  <div
-                    key={m.id}
-                    className="rounded-xl px-2 py-2 opacity-50"
-                    style={{ background: '#1E2A4510', border: '1px solid #1E2A4530' }}
-                  >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m._stColor }} />
-                      <Avatar photoUrl={m.photo_url} name={m.name} size={22} teamColor={m._stColor} />
-                      <span className="font-barlow font-bold text-xs text-gray-500 truncate">
-                        {m.name.split(' ')[0]}
-                      </span>
-                    </div>
-                    <div className="font-inter text-xs text-gray-700 pl-5 truncate">{m._stName}</div>
-                  </div>
-                ))}
-              </div>
+        {allYetToSell.length > 0 && (
+          <div className="w-32 flex-shrink-0 min-h-0 flex flex-col border-l border-gray-800 pl-2">
+            <div className="flex items-center gap-1 mb-2 flex-shrink-0">
+              <span className="font-inter text-xs text-gray-700 uppercase tracking-widest whitespace-nowrap">
+                ⏳ YTS
+              </span>
+              <span className="font-barlow font-bold text-xs text-gray-700">({allYetToSell.length})</span>
             </div>
-          )
-        })()}
+            <div ref={ytsScrollRef} className="flex-1 overflow-y-auto space-y-1.5">
+              {allYetToSell.map(m => (
+                <div
+                  key={m.id}
+                  className="rounded-xl px-2 py-2 opacity-50"
+                  style={{ background: '#1E2A4510', border: '1px solid #1E2A4530' }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: m._stColor }} />
+                    <Avatar photoUrl={m.photo_url} name={m.name} size={22} teamColor={m._stColor} />
+                    <span className="font-barlow font-bold text-xs text-gray-500 truncate">
+                      {m.name.split(' ')[0]}
+                    </span>
+                  </div>
+                  <div className="font-inter text-xs text-gray-700 pl-5 truncate">{m._stName}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

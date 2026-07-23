@@ -1,5 +1,34 @@
+import { useEffect, useRef } from 'react'
 import Avatar from './Avatar.jsx'
 import QuotaBar from './QuotaBar.jsx'
+
+function useAutoScroll(dep) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let pos = 0, paused = false, timer = null, raf
+
+    const tick = () => {
+      if (!paused && el.scrollHeight > el.clientHeight) {
+        pos += 0.25
+        const max = el.scrollHeight - el.clientHeight
+        if (pos >= max) {
+          pos = max
+          paused = true
+          timer = setTimeout(() => { pos = 0; el.scrollTop = 0; paused = false }, 1800)
+        } else {
+          el.scrollTop = pos
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+
+    const startTimer = setTimeout(() => { raf = requestAnimationFrame(tick) }, 1000)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(startTimer) }
+  }, [dep])
+  return ref
+}
 
 const MONTHS = ['January','February','March','April','May','June',
                 'July','August','September','October','November','December']
@@ -157,6 +186,8 @@ function TierColumn({ cat, members, currency }) {
 }
 
 function HighFlyersPanel({ members, currency }) {
+  const scrollRef = useAutoScroll(members.length)
+
   return (
     <div className="flex flex-col min-h-0 h-full pt-4">
       {/* Header */}
@@ -174,7 +205,7 @@ function HighFlyersPanel({ members, currency }) {
       </div>
 
       {/* List */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
         {members.length === 0 ? (
           <div className="text-center text-gray-700 italic font-inter text-sm py-6">
             No members this month
@@ -248,16 +279,13 @@ export default function WallOfFameSpotlight({ wallOfFame, currency = 'PHP' }) {
 
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="text-4xl">⭐</span>
+        <div className="flex items-center gap-4">
+          <div className="w-2 h-12 rounded-full flex-shrink-0" style={{ background: '#A855F7' }} />
           <div>
-            <div
-              className="font-barlow font-black text-4xl text-white tracking-tight leading-none"
-              style={{}}
-            >
+            <div className="font-barlow font-bold text-5xl tracking-wide uppercase leading-none" style={{ color: '#A855F7' }}>
               WALL OF FAME
             </div>
-            <div className="font-inter text-sm text-gray-500">{monthLabel} CHAMPIONS</div>
+            <div className="font-inter text-sm text-gray-500 mt-0.5">{monthLabel} CHAMPIONS</div>
           </div>
         </div>
         <div className="font-inter text-sm text-gray-600">
