@@ -3,6 +3,32 @@ import Avatar   from './Avatar.jsx'
 import QuotaBar from './QuotaBar.jsx'
 import { TIER_COLORS } from '../constants/tiers.js'
 
+function useAutoScroll(dep) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let pos = 0, paused = false, timer = null
+    const tick = () => {
+      if (!paused && el.scrollHeight > el.clientHeight) {
+        pos += 0.4
+        const max = el.scrollHeight - el.clientHeight
+        if (pos >= max) {
+          pos = max
+          paused = true
+          timer = setTimeout(() => { pos = 0; el.scrollTop = 0; paused = false }, 1800)
+        } else {
+          el.scrollTop = pos
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    let raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
+  }, [dep]) // re-init when list length changes
+  return ref
+}
+
 function fmt(n, currency = 'PHP') {
   return `${currency} ${Number(n || 0).toLocaleString()}`
 }
@@ -36,13 +62,14 @@ const SLOTS = [
 const BASE_H = 520 // px height the above values are designed for
 
 function YetToSellPanel({ entries = [] }) {
+  const scrollRef = useAutoScroll(entries.length)
   if (!entries.length) return null
   return (
     <div className="flex-shrink-0 pt-3 mt-3 border-t border-board-border/50">
       <div className="font-barlow font-bold text-sm text-gray-600 uppercase tracking-widest mb-2">
         ⏳ Yet to Sell <span className="text-gray-700 text-xs">({entries.length})</span>
       </div>
-      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+      <div ref={scrollRef} className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
         {entries.map(entry => {
           const color = entry.teamColor || '#6B7280'
           return (
@@ -79,6 +106,7 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
   const slotEntries = [top3[1] || null, top3[0] || null, top3[2] || null]
 
   // Scale all podium sizes proportionally to available height
+  const othersScrollRef = useAutoScroll(rest.length)
   const podiumRef = useRef(null)
   const [scale, setScale] = useState(1)
   useEffect(() => {
@@ -239,7 +267,7 @@ export default function PodiumStage({ entries = [], currency = 'PHP', othersTitl
             {othersTitle} <span className="text-gray-700 text-xs">({rest.length})</span>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+          <div ref={othersScrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
             {rest.map((entry, i) => {
               const color = entry.teamColor || '#6B7280'
               const pct   = entry.quota > 0

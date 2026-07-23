@@ -1,6 +1,33 @@
+import { useEffect, useRef } from 'react'
 import QuotaBar    from './QuotaBar.jsx'
 import Avatar      from './Avatar.jsx'
 import PodiumStage from './PodiumStage.jsx'
+
+function useAutoScroll(dep) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let pos = 0, paused = false, timer = null
+    const tick = () => {
+      if (!paused && el.scrollHeight > el.clientHeight) {
+        pos += 0.4
+        const max = el.scrollHeight - el.clientHeight
+        if (pos >= max) {
+          pos = max
+          paused = true
+          timer = setTimeout(() => { pos = 0; el.scrollTop = 0; paused = false }, 1800)
+        } else {
+          el.scrollTop = pos
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    let raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer) }
+  }, [dep])
+  return ref
+}
 
 const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
 
@@ -55,8 +82,9 @@ export default function TeamSpotlight({
 
   // Sub-team side panel (shown for parent teams only)
   const hasSubTeams = subTeams.length > 0
+  const subTeamsScrollRef = useAutoScroll(subTeams.length)
   const sidePanel = hasSubTeams ? (
-    <div className="flex flex-col gap-3 h-full overflow-y-auto pt-4 pr-1">
+    <div ref={subTeamsScrollRef} className="flex flex-col gap-3 h-full overflow-y-auto pt-4 pr-1">
       <div className="font-barlow font-bold text-sm text-gray-500 uppercase tracking-widest flex-shrink-0">
         Sub-Teams
       </div>
