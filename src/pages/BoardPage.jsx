@@ -170,7 +170,7 @@ export default function BoardPage() {
   const [incentiveUpgrade,  setIncentiveUpgrade]  = useState(null)
   const [selectedMember,    setSelectedMember]    = useState(null)
 
-  const prevSaleIdRef     = useRef(null)
+  const prevSaleIdRef     = useRef(sessionStorage.getItem('_lastSaleId') || null)
   const prevBoardRef      = useRef(null)   // holds last known board for quota-crossing diff
   const prevTeamPcts      = useRef({})
   const milestonesSeeded  = useRef(false)  // skip toasts on first board load
@@ -335,7 +335,10 @@ export default function BoardPage() {
       }
     }
 
-    if (latest) prevSaleIdRef.current = latest.id
+    if (latest) {
+      prevSaleIdRef.current = latest.id
+      sessionStorage.setItem('_lastSaleId', latest.id)
+    }
     prevBoardRef.current = board
   }, [board])
 

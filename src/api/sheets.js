@@ -5,8 +5,9 @@ if (!BASE_URL) {
 }
 
 const get = (params) =>
-  fetch(`${BASE_URL}?${new URLSearchParams(params)}`, {
+  fetch(`${BASE_URL}?${new URLSearchParams({ ...params, _t: Date.now() })}`, {
     redirect: 'follow',
+    cache: 'no-store',
   }).then(r => r.json())
 
 const post = (action, payload) =>
