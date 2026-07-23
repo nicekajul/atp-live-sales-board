@@ -145,10 +145,10 @@ export default function TeamSpotlight({
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
-          <div className="w-2 h-12 rounded-full flex-shrink-0" style={{ background: color }} />
+          <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ background: color }} />
           <div>
             <div
-              className="font-barlow font-bold text-5xl tracking-wide uppercase leading-none"
+              className="font-barlow font-bold text-3xl tracking-wide uppercase leading-none"
               style={{ color }}
             >
               {team.name}

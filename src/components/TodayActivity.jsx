@@ -66,9 +66,9 @@ export default function TodayActivity({
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
-          <span className="text-4xl">⚡</span>
+          <span className="text-2xl">⚡</span>
           <div>
-            <div className="font-barlow font-bold text-4xl text-white tracking-wide leading-none">
+            <div className="font-barlow font-bold text-2xl text-white tracking-wide leading-none">
               TODAY'S SALES ACTIVITY
             </div>
             <div className="font-inter text-sm text-gray-500">{dateLabel}</div>
@@ -77,7 +77,7 @@ export default function TodayActivity({
 
         <div className="text-right">
           <div
-            className="font-barlow font-bold text-4xl leading-none tabular-nums"
+            className="font-barlow font-bold text-2xl leading-none tabular-nums"
             style={{ color: '#F97316' }}
           >
             {fmt(todayTotal, currency)}

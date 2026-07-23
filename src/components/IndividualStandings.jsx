@@ -29,9 +29,9 @@ export default function IndividualStandings({
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
-          <div className="w-2 h-12 rounded-full flex-shrink-0" style={{ background: '#EAB308' }} />
+          <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ background: '#EAB308' }} />
           <div>
-            <div className="font-barlow font-bold text-5xl tracking-wide uppercase leading-none" style={{ color: '#EAB308' }}>
+            <div className="font-barlow font-bold text-3xl tracking-wide uppercase leading-none" style={{ color: '#EAB308' }}>
               TOP AGENTS
             </div>
             <div className="font-inter text-sm text-gray-500 mt-0.5">{label}</div>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useBoard, useSecondsSince } from '../hooks/useBoard.js'
 import { api }                   from '../api/sheets.js'
-import Avatar                    from '../components/Avatar.jsx'
 import TeamColumn                from '../components/TeamColumn.jsx'
 import TeamSpotlight             from '../components/TeamSpotlight.jsx'
 import IndividualStandings       from '../components/IndividualStandings.jsx'
@@ -15,99 +14,6 @@ import Ticker                    from '../components/Ticker.jsx'
 import HallOfFame                from '../components/HallOfFame.jsx'
 import WallOfFame                from '../components/WallOfFame.jsx'
 import CelebrationPopup          from '../components/CelebrationPopup.jsx'
-
-// ── Auto-scroll hook ─────────────────────────────────────────────────────────
-function useAutoScroll(dep) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let pos = 0, paused = false, timer = null, raf
-
-    const tick = () => {
-      if (!paused && el.scrollHeight > el.clientHeight) {
-        pos += 0.25
-        const max = el.scrollHeight - el.clientHeight
-        if (pos >= max) {
-          pos = max
-          paused = true
-          timer = setTimeout(() => { pos = 0; el.scrollTop = 0; paused = false }, 1800)
-        } else {
-          el.scrollTop = pos
-        }
-      }
-      raf = requestAnimationFrame(tick)
-    }
-
-    const startTimer = setTimeout(() => { raf = requestAnimationFrame(tick) }, 1000)
-    return () => { cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(startTimer) }
-  }, [dep])
-  return ref
-}
-
-// ── High Flyers panel (shown on main live board) ──────────────────────────────
-function HighFlyersPanel({ members, teams, memberTotals, memberTotalsToday, memberQuotas, currency, viewMode }) {
-  const scrollRef = useAutoScroll(members.length)
-
-  const entries = [...members]
-    .map(m => {
-      const team = teams.find(t => String(t.id) === String(m.team_id))
-      return {
-        id:        m.id,
-        name:      m.name,
-        photo_url: m.photo_url,
-        total:     viewMode === 'daily' ? (memberTotalsToday[m.id] || 0) : (memberTotals[m.id] || 0),
-        teamColor: team?.color || '#6B7280',
-        quota:     memberQuotas[m.id] || 0,
-      }
-    })
-    .filter(e => e.total > 0)
-    .sort((a, b) => b.total - a.total)
-
-  return (
-    <div className="w-64 flex-shrink-0 flex flex-col border-l border-board-border pl-3 min-h-0">
-      <div className="flex items-center gap-2 flex-shrink-0 pb-2 mb-1 border-b border-board-border/50">
-        <span className="text-lg">⚡</span>
-        <div className="font-barlow font-black text-base text-white tracking-widest uppercase">High Flyers</div>
-        {entries.length > 0 && (
-          <span className="ml-auto font-barlow font-bold text-xs text-gray-600">({entries.length})</span>
-        )}
-      </div>
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
-        {entries.map((entry, i) => {
-          const pct      = entry.quota > 0 ? Math.min(999, Math.round((entry.total / entry.quota) * 100)) : null
-          const quotaHit = entry.quota > 0 && entry.total >= entry.quota
-          return (
-            <div
-              key={entry.id}
-              className="rounded-xl px-2.5 py-2 flex items-center gap-2"
-              style={{ background: `${entry.teamColor}0C`, border: `1px solid ${entry.teamColor}28` }}
-            >
-              <span className="font-barlow font-bold text-xs text-gray-600 w-5 text-center flex-shrink-0">
-                {i + 1}
-              </span>
-              <Avatar photoUrl={entry.photo_url} name={entry.name} size={32} teamColor={entry.teamColor} />
-              <div className="flex-1 min-w-0">
-                <div className="font-barlow font-semibold text-sm text-white leading-tight truncate">{entry.name}</div>
-                {pct !== null && (
-                  <div className="font-inter text-xs" style={{ color: `${entry.teamColor}AA` }}>
-                    {pct}%{quotaHit ? ' 🔥' : ''}
-                  </div>
-                )}
-              </div>
-              <span className="font-barlow font-bold text-xs whitespace-nowrap flex-shrink-0 tabular-nums" style={{ color: entry.teamColor }}>
-                {fmt(entry.total, currency)}
-              </span>
-            </div>
-          )
-        })}
-        {entries.length === 0 && (
-          <div className="text-center font-inter text-xs text-gray-700 italic py-6">No sales yet</div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ── Cycle view definitions ──────────────────────────────────────────────────
 const CYCLE_VIEWS = [
@@ -610,47 +516,34 @@ export default function BoardPage() {
       {/* ── MAIN CYCLING AREA ── */}
       <div key={viewKey} className="flex-1 min-h-0 animate-view-enter overflow-hidden">
         {currentView.id === 'main' && (
-          <div className="h-full flex gap-3 px-4 py-2 min-h-0">
-            {/* Teams grid */}
-            <div className="flex-1 min-w-0 grid grid-cols-2 gap-3">
-              {rankedTeams.map((team, rank) => {
-                const subTeams = (board?.teams || []).filter(t => String(t.parent_team_id) === String(team.id))
-                const directMembers = (board?.members || []).filter(m => String(m.team_id) === String(team.id))
-                return (
-                  <TeamColumn
-                    key={team.id}
-                    team={team}
-                    rank={rank}
-                    subTeams={subTeams}
-                    directMembers={directMembers}
-                    allMembers={board?.members || []}
-                    memberTotals={board?.memberTotals || {}}
-                    memberTotalsToday={board?.memberTotalsToday || {}}
-                    memberQuotas={board?.memberQuotas || {}}
-                    teamTotal={board?.teamTotals[team.id] || 0}
-                    teamTotalToday={board?.teamTotalsToday[team.id] || 0}
-                    teamQuota={board?.teamQuotas[team.id] || 0}
-                    subTeamTotals={board?.teamTotals || {}}
-                    subTeamTotalsToday={board?.teamTotalsToday || {}}
-                    subTeamQuotas={board?.teamQuotas || {}}
-                    memberStreaks={board?.memberStreaks || {}}
-                    memberIncentiveLevels={board?.memberIncentiveLevels || {}}
-                    currency={currency}
-                    viewMode={viewMode}
-                  />
-                )
-              })}
-            </div>
-            {/* High Flyers sidebar */}
-            <HighFlyersPanel
-              members={rankableMembers}
-              teams={board?.teams || []}
-              memberTotals={board?.memberTotals || {}}
-              memberTotalsToday={board?.memberTotalsToday || {}}
-              memberQuotas={board?.memberQuotas || {}}
-              currency={currency}
-              viewMode={viewMode}
-            />
+          <div className="h-full grid grid-cols-2 gap-3 px-4 py-2">
+            {rankedTeams.map((team, rank) => {
+              const subTeams = (board?.teams || []).filter(t => String(t.parent_team_id) === String(team.id))
+              const directMembers = (board?.members || []).filter(m => String(m.team_id) === String(team.id))
+              return (
+                <TeamColumn
+                  key={team.id}
+                  team={team}
+                  rank={rank}
+                  subTeams={subTeams}
+                  directMembers={directMembers}
+                  allMembers={board?.members || []}
+                  memberTotals={board?.memberTotals || {}}
+                  memberTotalsToday={board?.memberTotalsToday || {}}
+                  memberQuotas={board?.memberQuotas || {}}
+                  teamTotal={board?.teamTotals[team.id] || 0}
+                  teamTotalToday={board?.teamTotalsToday[team.id] || 0}
+                  teamQuota={board?.teamQuotas[team.id] || 0}
+                  subTeamTotals={board?.teamTotals || {}}
+                  subTeamTotalsToday={board?.teamTotalsToday || {}}
+                  subTeamQuotas={board?.teamQuotas || {}}
+                  memberStreaks={board?.memberStreaks || {}}
+                  memberIncentiveLevels={board?.memberIncentiveLevels || {}}
+                  currency={currency}
+                  viewMode={viewMode}
+                />
+              )
+            })}
           </div>
         )}
 

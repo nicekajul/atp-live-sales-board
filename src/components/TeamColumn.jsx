@@ -191,36 +191,37 @@ export default function TeamColumn({
     >
       {/* ── Parent team header ── */}
       <div
-        className="px-4 py-3 relative flex-shrink-0"
+        className="px-3 py-1.5 relative flex-shrink-0"
         style={{
           background:   `linear-gradient(135deg, ${color}22 0%, ${color}08 100%)`,
-          borderBottom: `2px solid ${color}55`,
+          borderBottom: `1px solid ${color}55`,
         }}
       >
-        <div className="flex items-center justify-between mb-1">
-          <div className="font-barlow font-bold text-2xl tracking-wide" style={{ color }}>
+        <div className="flex items-center gap-2">
+          <div className="font-barlow font-bold text-base tracking-wide flex-1 min-w-0 truncate" style={{ color }}>
             {team.name.toUpperCase()}
           </div>
+          <div className="font-barlow font-bold text-base tabular-nums flex-shrink-0" style={{ color }}>
+            {fmt(teamDisplayTotal, currency)}
+          </div>
           <div
-            className="font-barlow font-bold text-xl px-2 py-0.5 rounded-md"
+            className="font-barlow font-bold text-sm px-1.5 py-0.5 rounded flex-shrink-0"
             style={{
               background: `${color}22`,
               color:      RANK_COLORS[rank] || color,
-              border:     `1px solid ${(RANK_COLORS[rank] || color)}66`,
+              border:     `1px solid ${(RANK_COLORS[rank] || color)}55`,
             }}
           >
             {RANK_LABELS[rank] || `#${rank + 1}`}
           </div>
         </div>
-        <div className="font-barlow font-bold text-2xl leading-none tracking-wide tabular-nums" style={{ color }}>
-          {fmt(teamDisplayTotal, currency)}
-        </div>
-        <div className="mt-2">
-          <QuotaBar current={teamDisplayTotal} quota={teamQuota} color={color} size="lg" showLabel={false} currency={currency} />
-          <div className="flex justify-between mt-0.5">
-            <span className="text-xs font-inter" style={{ color: `${color}99` }}>{pct.toFixed(1)}% of quota</span>
-            <span className="text-xs text-gray-600 font-inter">{fmt(teamQuota, currency)}</span>
+        <div className="mt-1 flex items-center gap-2">
+          <div className="flex-1">
+            <QuotaBar current={teamDisplayTotal} quota={teamQuota} color={color} size="sm" showLabel={false} currency={currency} />
           </div>
+          <span className="font-barlow font-bold text-xs flex-shrink-0" style={{ color: `${color}99` }}>
+            {pct.toFixed(1)}%
+          </span>
         </div>
       </div>
 
