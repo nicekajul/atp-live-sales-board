@@ -19,18 +19,16 @@ import CelebrationPopup          from '../components/CelebrationPopup.jsx'
 let _lastSeenSaleId = null
 
 // ── Cycle view definitions ──────────────────────────────────────────────────
-const CYCLE_VIEWS = [
-  { id: 'main',        label: 'LIVE BOARD',     icon: '📊', color: '#00F5A0', duration: 18 },
-  { id: 'team-0',      label: null,             icon: '●',  color: null,      duration: 12, teamIdx: 0 },
-  { id: 'team-2',      label: null,             icon: '●',  color: null,      duration: 9,  teamIdx: 2 },
-  { id: 'team-3',      label: null,             icon: '●',  color: null,      duration: 9,  teamIdx: 3 },
-  { id: 'team-1',      label: null,             icon: '●',  color: null,      duration: 12, teamIdx: 1 },
-  { id: 'team-4',      label: null,             icon: '●',  color: null,      duration: 9,  teamIdx: 4 },
-  { id: 'individual',  label: 'TOP AGENTS',     icon: '🏆', color: '#EAB308', duration: 12 },
-  { id: 'walloffame',  label: 'WALL OF FAME',   icon: '⭐', color: '#A855F7', duration: 12 },
-  { id: 'today',       label: "TODAY'S SALES",  icon: '⚡', color: '#F97316', duration: 10 },
-  { id: 'awards-quarterly', label: 'QUARTERLY AWARDS', icon: '🏅', color: '#F59E0B', duration: 15, manual: true },
-  { id: 'awards-yearly',    label: 'YEARLY AWARDS',    icon: '🚗', color: '#F59E0B', duration: 15, manual: true },
+// Team spotlight slots are inserted dynamically in the component based on
+// actual visible parent teams, so we never reference stale array indices.
+const BASE_CYCLE_VIEWS = [
+  { id: 'main',             label: 'LIVE BOARD',      icon: '📊', color: '#00F5A0', duration: 18 },
+  // team spotlights injected here at runtime
+  { id: 'individual',       label: 'TOP AGENTS',      icon: '🏆', color: '#EAB308', duration: 12 },
+  { id: 'walloffame',       label: 'WALL OF FAME',    icon: '⭐', color: '#A855F7', duration: 12 },
+  { id: 'today',            label: "TODAY'S SALES",   icon: '⚡', color: '#F97316', duration: 10 },
+  { id: 'awards-quarterly', label: 'QUARTERLY AWARDS',icon: '🏅', color: '#F59E0B', duration: 15, manual: true },
+  { id: 'awards-yearly',    label: 'YEARLY AWARDS',   icon: '🚗', color: '#F59E0B', duration: 15, manual: true },
 ]
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -110,13 +108,12 @@ function BottomLeftStats({ board, viewMode, currency }) {
 }
 
 // ── Cycle nav bar ────────────────────────────────────────────────────────────
-function CycleBar({ cycleIdx, cycleProgress, teams, onJump }) {
+function CycleBar({ cycleIdx, cycleProgress, cycleViews, onJump }) {
   return (
     <div className="flex-shrink-0 flex items-center gap-1 px-4 py-1.5 border-b border-board-border/40 bg-board-bg overflow-x-auto">
-      {CYCLE_VIEWS.map((v, i) => {
-        const team    = v.teamIdx !== undefined ? teams?.[v.teamIdx] : null
-        const label   = team ? team.name.toUpperCase() : v.label
-        const color   = team ? team.color : v.color
+      {cycleViews.map((v, i) => {
+        const label   = v.teamName ? v.teamName.toUpperCase() : v.label
+        const color   = v.teamColor || v.color
         const active  = i === cycleIdx
 
         return (
@@ -140,7 +137,7 @@ function CycleBar({ cycleIdx, cycleProgress, teams, onJump }) {
             )}
             <span
               className="text-sm leading-none"
-              style={{ color: v.icon === '●' && team ? team.color : undefined }}
+              style={{ color: v.icon === '●' && v.teamColor ? v.teamColor : undefined }}
             >
               {v.icon === '●'
                 ? <span style={{ fontSize: 10 }}>●</span>
@@ -178,23 +175,33 @@ export default function BoardPage() {
   const prevTeamPcts      = useRef({})
   const milestonesSeeded  = useRef(false)  // skip toasts on first board load
 
-  // Returns the next valid cycle index, skipping manual-only views and team
-  // views whose team doesn't exist in board.teams.
-  const nextValidIdx = (from, teams) => {
-    let next = (from + 1) % CYCLE_VIEWS.length
-    let guard = 0
-    while (guard++ < CYCLE_VIEWS.length) {
-      const v = CYCLE_VIEWS[next]
-      if (v.manual) { next = (next + 1) % CYCLE_VIEWS.length; continue }
-      if (v.teamIdx !== undefined && !teams?.[v.teamIdx]) { next = (next + 1) % CYCLE_VIEWS.length; continue }
-      break
-    }
-    return next
-  }
+  // Build cycle views dynamically: team spotlights inserted after main, keyed
+  // by actual team ID so stale array-index issues can never occur.
+  const cycleViews = useMemo(() => {
+    const visibleTeams = (board?.teams || [])
+      .filter(t => String(t.hidden) !== 'true')
+    const teamSlots = visibleTeams.map((t, i) => ({
+      id:        `team-${t.id}`,
+      label:     null,
+      icon:      '●',
+      color:     null,
+      teamColor: t.color || '#6B7280',
+      teamName:  t.name,
+      teamId:    t.id,
+      duration:  i < 2 ? 12 : 9,
+    }))
+    return [BASE_CYCLE_VIEWS[0], ...teamSlots, ...BASE_CYCLE_VIEWS.slice(1)]
+  }, [board?.teams])
+
+  // Keep cycleIdx in range when cycleViews length changes
+  useEffect(() => {
+    if (cycleIdx >= cycleViews.length) setCycleIdx(0)
+  }, [cycleViews.length])
 
   // ── Cycle timer ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const duration = CYCLE_VIEWS[cycleIdx].duration * 1000
+    if (!cycleViews[cycleIdx]) return
+    const duration = cycleViews[cycleIdx].duration * 1000
     const start    = Date.now()
     const TICK     = 200
 
@@ -203,23 +210,18 @@ export default function BoardPage() {
       setCycleProgress(Math.max(0, 100 - (elapsed / duration) * 100))
       if (elapsed >= duration) {
         clearInterval(id)
-        setCycleIdx(i => nextValidIdx(i, board?.teams))
+        setCycleIdx(i => {
+          let next = (i + 1) % cycleViews.length
+          while (cycleViews[next]?.manual) next = (next + 1) % cycleViews.length
+          return next
+        })
         setCycleProgress(100)
         setViewKey(k => k + 1)
       }
     }, TICK)
 
     return () => clearInterval(id)
-  }, [cycleIdx, board])
-
-  // Auto-skip if current view is a team spotlight with no matching team
-  useEffect(() => {
-    const v = CYCLE_VIEWS[cycleIdx]
-    if (v.teamIdx === undefined) return
-    if (board?.teams?.[v.teamIdx]) return
-    setCycleIdx(i => nextValidIdx(i, board?.teams))
-    setViewKey(k => k + 1)
-  }, [cycleIdx, board])
+  }, [cycleIdx, cycleViews])
 
   // ── Incentive summary (separate poll, 30s) ───────────────────────────────
   useEffect(() => {
@@ -230,13 +232,8 @@ export default function BoardPage() {
     return () => clearInterval(id)
   }, [])
 
-  // Manual jump — if target is a missing-team view, find the next valid one
   function jumpTo(i) {
-    const v = CYCLE_VIEWS[i]
-    const target = (v.teamIdx !== undefined && !board?.teams?.[v.teamIdx])
-      ? nextValidIdx(i - 1, board?.teams)
-      : i
-    setCycleIdx(target)
+    setCycleIdx(i)
     setCycleProgress(100)
     setViewKey(k => k + 1)
   }
@@ -420,7 +417,7 @@ export default function BoardPage() {
     : (board?.siteTotal || 0)
   const siteQuota = board?.siteQuota || 0
 
-  const currentView = CYCLE_VIEWS[cycleIdx]
+  const currentView = cycleViews[cycleIdx] || cycleViews[0]
   const showWallOfFameStrip = currentView.id === 'main' || currentView.id === 'today'
 
   // ── Loading / error ───────────────────────────────────────────────────────
@@ -539,7 +536,7 @@ export default function BoardPage() {
       <CycleBar
         cycleIdx={cycleIdx}
         cycleProgress={cycleProgress}
-        teams={board?.teams || []}
+        cycleViews={cycleViews}
         onJump={jumpTo}
       />
 
@@ -578,7 +575,7 @@ export default function BoardPage() {
         )}
 
         {currentView.id.startsWith('team-') && (() => {
-          const team = board?.teams?.[currentView.teamIdx]
+          const team = (board?.teams || []).find(t => String(t.id) === String(currentView.teamId))
           if (!team) return null
           const subTeams = (board?.teams || []).filter(t => String(t.parent_team_id) === String(team.id))
           const isParent = subTeams.length > 0
