@@ -1,35 +1,7 @@
-import { useEffect, useRef } from 'react'
 import QuotaBar    from './QuotaBar.jsx'
 import Avatar      from './Avatar.jsx'
 import PodiumStage from './PodiumStage.jsx'
-
-function useAutoScroll(dep) {
-  const ref = useRef(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let pos = 0, paused = false, timer = null, raf
-
-    const tick = () => {
-      if (!paused && el.scrollHeight > el.clientHeight) {
-        pos += 0.25
-        const max = el.scrollHeight - el.clientHeight
-        if (pos >= max) {
-          pos = max
-          paused = true
-          timer = setTimeout(() => { pos = 0; el.scrollTop = 0; paused = false }, 1800)
-        } else {
-          el.scrollTop = pos
-        }
-      }
-      raf = requestAnimationFrame(tick)
-    }
-
-    const startTimer = setTimeout(() => { raf = requestAnimationFrame(tick) }, 1000)
-    return () => { cancelAnimationFrame(raf); clearTimeout(timer); clearTimeout(startTimer) }
-  }, [dep])
-  return ref
-}
+import { useAutoScroll } from '../hooks/useAutoScroll.js'
 
 const RANK_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
 
