@@ -193,15 +193,21 @@ export default function BoardPage() {
     return [BASE_CYCLE_VIEWS[0], ...teamSlots, ...BASE_CYCLE_VIEWS.slice(1)]
   }, [board?.teams])
 
-  // Keep cycleIdx in range when cycleViews length changes
+  // Keep cycleIdx in range when team count changes
   useEffect(() => {
     if (cycleIdx >= cycleViews.length) setCycleIdx(0)
   }, [cycleViews.length])
 
+  // Ref so the timer always sees the latest cycleViews without restarting
+  const cycleViewsRef = useRef(cycleViews)
+  useEffect(() => { cycleViewsRef.current = cycleViews }, [cycleViews])
+
   // ── Cycle timer ──────────────────────────────────────────────────────────
+  // Depends ONLY on cycleIdx so board polls (every 10s) never reset the timer.
   useEffect(() => {
-    if (!cycleViews[cycleIdx]) return
-    const duration = cycleViews[cycleIdx].duration * 1000
+    const views = cycleViewsRef.current
+    if (!views[cycleIdx]) return
+    const duration = views[cycleIdx].duration * 1000
     const start    = Date.now()
     const TICK     = 200
 
@@ -211,8 +217,9 @@ export default function BoardPage() {
       if (elapsed >= duration) {
         clearInterval(id)
         setCycleIdx(i => {
-          let next = (i + 1) % cycleViews.length
-          while (cycleViews[next]?.manual) next = (next + 1) % cycleViews.length
+          const cv = cycleViewsRef.current
+          let next = (i + 1) % cv.length
+          while (cv[next]?.manual) next = (next + 1) % cv.length
           return next
         })
         setCycleProgress(100)
@@ -221,7 +228,7 @@ export default function BoardPage() {
     }, TICK)
 
     return () => clearInterval(id)
-  }, [cycleIdx, cycleViews])
+  }, [cycleIdx])  // cycleViews intentionally omitted — use cycleViewsRef
 
   // ── Incentive summary (separate poll, 30s) ───────────────────────────────
   useEffect(() => {
@@ -580,14 +587,22 @@ export default function BoardPage() {
           const subTeams = (board?.teams || []).filter(t => String(t.parent_team_id) === String(team.id))
           const isParent = subTeams.length > 0
 
-          // Parent: include manager + all sub-team members on podium
-          // Sub-team: just its own members
+          // Parent: include manager + all sub-team members + cross-team members on podium
+          // Sub-team / leaf: its own members + cross-team members linked to it
+          const linkedTo = (m, id) =>
+            (m.linked_team_ids || '').split(',').map(s => s.trim()).includes(String(id))
+
           const spotlightMembers = isParent
             ? (board?.members || []).filter(m => {
                 const subIds = subTeams.map(st => String(st.id))
-                return String(m.team_id) === String(team.id) || subIds.includes(String(m.team_id))
+                return String(m.team_id) === String(team.id)
+                  || subIds.includes(String(m.team_id))
+                  || linkedTo(m, team.id)
+                  || subIds.some(sid => linkedTo(m, sid))
               })
-            : (board?.members || []).filter(m => String(m.team_id) === String(team.id))
+            : (board?.members || []).filter(m =>
+                String(m.team_id) === String(team.id) || linkedTo(m, team.id)
+              )
 
           // Rank parent teams among parents; rank sub-teams among siblings
           const competeAgainst = isParent

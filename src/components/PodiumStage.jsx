@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Avatar   from './Avatar.jsx'
 import QuotaBar from './QuotaBar.jsx'
 import { TIER_COLORS } from '../constants/tiers.js'
