@@ -178,6 +178,20 @@ export default function BoardPage() {
   const prevTeamPcts      = useRef({})
   const milestonesSeeded  = useRef(false)  // skip toasts on first board load
 
+  // Returns the next valid cycle index, skipping manual-only views and team
+  // views whose team doesn't exist in board.teams.
+  const nextValidIdx = (from, teams) => {
+    let next = (from + 1) % CYCLE_VIEWS.length
+    let guard = 0
+    while (guard++ < CYCLE_VIEWS.length) {
+      const v = CYCLE_VIEWS[next]
+      if (v.manual) { next = (next + 1) % CYCLE_VIEWS.length; continue }
+      if (v.teamIdx !== undefined && !teams?.[v.teamIdx]) { next = (next + 1) % CYCLE_VIEWS.length; continue }
+      break
+    }
+    return next
+  }
+
   // ── Cycle timer ──────────────────────────────────────────────────────────
   useEffect(() => {
     const duration = CYCLE_VIEWS[cycleIdx].duration * 1000
@@ -189,18 +203,23 @@ export default function BoardPage() {
       setCycleProgress(Math.max(0, 100 - (elapsed / duration) * 100))
       if (elapsed >= duration) {
         clearInterval(id)
-        setCycleIdx(i => {
-          let next = (i + 1) % CYCLE_VIEWS.length
-          while (CYCLE_VIEWS[next].manual) next = (next + 1) % CYCLE_VIEWS.length
-          return next
-        })
+        setCycleIdx(i => nextValidIdx(i, board?.teams))
         setCycleProgress(100)
         setViewKey(k => k + 1)
       }
     }, TICK)
 
     return () => clearInterval(id)
-  }, [cycleIdx])
+  }, [cycleIdx, board])
+
+  // Auto-skip if current view is a team spotlight with no matching team
+  useEffect(() => {
+    const v = CYCLE_VIEWS[cycleIdx]
+    if (v.teamIdx === undefined) return
+    if (board?.teams?.[v.teamIdx]) return
+    setCycleIdx(i => nextValidIdx(i, board?.teams))
+    setViewKey(k => k + 1)
+  }, [cycleIdx, board])
 
   // ── Incentive summary (separate poll, 30s) ───────────────────────────────
   useEffect(() => {
@@ -211,9 +230,13 @@ export default function BoardPage() {
     return () => clearInterval(id)
   }, [])
 
-  // Manual jump
+  // Manual jump — if target is a missing-team view, find the next valid one
   function jumpTo(i) {
-    setCycleIdx(i)
+    const v = CYCLE_VIEWS[i]
+    const target = (v.teamIdx !== undefined && !board?.teams?.[v.teamIdx])
+      ? nextValidIdx(i - 1, board?.teams)
+      : i
+    setCycleIdx(target)
     setCycleProgress(100)
     setViewKey(k => k + 1)
   }
